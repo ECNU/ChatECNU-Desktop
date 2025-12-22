@@ -56,6 +56,28 @@
       display: flex;
       align-items: center;
     }
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      margin-right: 140px; /* 为原生窗口控制按钮留出空间 (约 138px) */
+      -webkit-app-region: no-drag;
+    }
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      padding: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .btn-icon:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
     .update-progress-container {
       display: flex;
       align-items: center;
@@ -82,15 +104,7 @@
       <!-- 图标 -->
       <img id="app-icon" class="titlebar-icon" src="" alt="icon">
       <div class="titlebar-title">ChatECNU Desktop</div>
-      <!-- 菜单 -->
       <div class="titlebar-menu">
-        <button id="btn-refresh" title="刷新页面" style="margin-right: 10px; display: flex; align-items: center; justify-content: center; padding: 4px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M23 4v6h-6"></path>
-            <path d="M1 20v-6h6"></path>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-          </svg>
-        </button>
         <div id="update-ring" class="update-progress-container">
           <div class="loading-spinner"></div>
         </div>
@@ -98,6 +112,16 @@
       </div>
     </div>
     
+    <div class="titlebar-right">
+      <button id="btn-refresh" class="btn-icon" title="刷新页面">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 4v6h-6"></path>
+          <path d="M1 20v-6h6"></path>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </div>
+
     <!-- 原生窗口控件会自动显示在右侧，无需手动添加 -->
   </div>
 

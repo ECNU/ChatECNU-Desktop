@@ -177,20 +177,7 @@ ipcMain.on('check-for-updates', () => checkForUpdates(true));
 // IPC: 刷新页面
 ipcMain.on('reload-page', () => {
   if (view && view.webContents) {
-    // 刷新前确认
-    const choice = dialog.showMessageBoxSync(mainWindow, {
-      type: 'question',
-      title: '刷新页面',
-      message: '确定要刷新页面吗？',
-      detail: '刷新可能会导致未保存的数据丢失。',
-      buttons: ['刷新', '取消'],
-      defaultId: 0,
-      cancelId: 1
-    });
-
-    if (choice === 0) {
-      view.webContents.reload();
-    }
+    view.webContents.reload();
   }
 });
 
