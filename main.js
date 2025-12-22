@@ -161,6 +161,23 @@ ipcMain.handle('show-save-dialog', async (event, defaultName) => {
 // IPC: 检查更新
 ipcMain.on('check-for-updates', () => checkForUpdates(true));
 
+// IPC: 下载更新
+ipcMain.on('download-update', () => {
+  const { downloadUpdate } = require('./updater');
+  downloadUpdate();
+});
+
+// IPC: 安装更新
+ipcMain.on('install-update', () => {
+  const { quitAndInstall } = require('./updater');
+  // 关键修复：移除所有阻止窗口关闭的监听器
+  if (mainWindow) {
+    mainWindow.removeAllListeners('close');
+    mainWindow.close();
+  }
+  quitAndInstall();
+});
+
 // 单实例锁：禁止多开
 const gotTheLock = app.requestSingleInstanceLock();
 

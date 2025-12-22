@@ -69,7 +69,6 @@
       border-radius: 50%;
       border-top-color: #fff;
       animation: spin 1s linear infinite;
-      margin-right: 6px;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -85,10 +84,9 @@
       <div class="titlebar-title">ChatECNU Desktop</div>
       <!-- 菜单 -->
       <div class="titlebar-menu">
-        <div id="update-progress" class="update-progress-container">
-          <!-- 动态内容 -->
+        <div id="update-ring" class="update-progress-container">
+          <div class="loading-spinner"></div>
         </div>
-        <span id="update-status" style="font-size: 12px; margin-right: 10px; display: none;"></span>
         <button id="btn-update">检查更新</button>
       </div>
     </div>
@@ -99,55 +97,35 @@
   <script>
     const { ipcRenderer } = require('electron');
 
-    const statusEl = document.getElementById('update-status');
-    const progressEl = document.getElementById('update-progress');
+    const ringEl = document.getElementById('update-ring');
     const btnUpdate = document.getElementById('btn-update');
+    
+    let isUpdateAvailable = false;
+    let isUpdateDownloaded = false;
 
-    function showStatus(text, autoHide = false) {
-      progressEl.style.display = 'none';
-      statusEl.style.display = 'inline';
-      statusEl.textContent = text;
-      
-      if (autoHide) {
-        setTimeout(() => {
-          statusEl.style.display = 'none';
-        }, 3000);
-      }
-    }
-
-    function showProgress(percent) {
-      statusEl.style.display = 'none';
-      progressEl.style.display = 'flex';
-      
-      // 计算 SVG 圆环参数
-      const radius = 6;
-      const circumference = 2 * Math.PI * radius;
-      const offset = circumference - (percent / 100) * circumference;
-      
-      progressEl.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 16 16" style="transform: rotate(-90deg); margin-right: 6px;">
-          <circle cx="8" cy="8" r="${radius}" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none"/>
-          <circle cx="8" cy="8" r="${radius}" stroke="#fff" stroke-width="2" fill="none" 
-                  stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" 
-                  stroke-linecap="round" />
-        </svg>
-        <span style="font-size: 12px;">${percent}%</span>
-      `;
-    }
-
-    function showLoading(text) {
-      statusEl.style.display = 'none';
-      progressEl.style.display = 'flex';
-      progressEl.innerHTML = `
-        <div class="loading-spinner"></div>
-        <span style="font-size: 12px;">${text}</span>
-      `;
+    // 显示/隐藏 Loading Ring
+    function toggleRing(show) {
+      ringEl.style.display = show ? 'flex' : 'none';
     }
 
     // 绑定事件
     btnUpdate.onclick = () => {
-      ipcRenderer.send('check-for-updates');
-      showLoading('正在检查...');
+      if (isUpdateDownloaded) {
+        // 状态3：点击安装
+        ipcRenderer.send('install-update');
+        btnUpdate.disabled = true;
+      } else if (isUpdateAvailable) {
+        // 状态2：点击下载
+        ipcRenderer.send('download-update');
+        btnUpdate.textContent = '下载中...'; 
+        btnUpdate.disabled = true; 
+        toggleRing(true);
+      } else {
+        // 状态1：检查更新
+        ipcRenderer.send('check-for-updates');
+        btnUpdate.disabled = true;
+        toggleRing(true);
+      }
     };
 
     // 接收图标数据
@@ -155,22 +133,47 @@
       document.getElementById('app-icon').src = dataUrl;
     });
 
-    // 接收更新状态
-    ipcRenderer.on('update-message', (event, message) => {
-      if (message.includes('下载中') || message.includes('开始下载')) {
-        showLoading('准备下载...');
-      } else if (message.includes('下载完成')) {
-        showStatus('下载完成', true);
-      } else if (message.includes('发现')) {
-        showStatus(message, false);
-      } else {
-        showStatus(message, true);
-      }
+    // 发现新版本
+    ipcRenderer.on('update-available', (event, info) => {
+      isUpdateAvailable = true;
+      toggleRing(false); 
+      btnUpdate.disabled = false;
+      btnUpdate.textContent = '立即下载';
     });
 
-    // 接收下载进度
-    ipcRenderer.on('update-progress', (event, percent) => {
-      showProgress(percent);
+    // 无新版本
+    ipcRenderer.on('update-not-available', () => {
+      isUpdateAvailable = false;
+      toggleRing(false); // 瞬间结束
+      btnUpdate.disabled = false;
+      btnUpdate.textContent = '检查更新';
+    });
+
+    // 下载中（只接收信号，不处理进度数字）
+    ipcRenderer.on('update-download-progress', () => {
+      toggleRing(true);
+    });
+
+    // 下载完成
+    ipcRenderer.on('update-downloaded', () => {
+      isUpdateDownloaded = true;
+      toggleRing(false);
+      btnUpdate.disabled = false;
+      btnUpdate.textContent = '立即安装';
+    });
+
+    // 错误处理
+    ipcRenderer.on('update-error', () => {
+      toggleRing(false);
+      btnUpdate.disabled = false;
+      btnUpdate.textContent = '检查更新'; 
+      isUpdateAvailable = false;
+      isUpdateDownloaded = false;
+    });
+    
+    // 兼容旧消息
+    ipcRenderer.on('update-message', (event, message) => {
+       console.log('Update message:', message);
     });
   </script>
 </body>
