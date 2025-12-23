@@ -1,8 +1,22 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const XLSX = require('xlsx');
 
+// 获取设置
+let tableExportEnabled = true;
+ipcRenderer.invoke('get-settings').then(settings => {
+  tableExportEnabled = settings.tableExport !== false;
+});
+
+// 监听设置变化
+ipcRenderer.on('settings-changed', (event, settings) => {
+  tableExportEnabled = settings.tableExport !== false;
+  // 通知页面更新
+  window.postMessage({ type: 'table-export-setting', enabled: tableExportEnabled }, '*');
+});
+
 // 通过 contextBridge 暴露安全的 API
 contextBridge.exposeInMainWorld('tableExporter', {
+  isEnabled: () => tableExportEnabled,
   exportToExcel: async (tableHtml) => {
     try {
       const container = document.createElement('div');
@@ -30,9 +44,29 @@ contextBridge.exposeInMainWorld('tableExporter', {
 
 // 注入 UI 脚本（表格导出按钮）
 window.addEventListener('DOMContentLoaded', () => {
+  // 根据设置决定是否注入
+  if (!tableExportEnabled) {
+    console.log('[TableExporter] 表格导出功能已禁用');
+    return;
+  }
+
   const script = document.createElement('script');
   script.textContent = `
     (function() {
+      let featureEnabled = true;
+
+      // 监听设置变化
+      window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'table-export-setting') {
+          featureEnabled = e.data.enabled;
+          const btn = document.getElementById('__table_export_btn__');
+          if (btn) {
+            btn.style.display = featureEnabled ? 'none' : 'none'; // 隐藏按钮
+            if (!featureEnabled) btn.remove();
+          }
+        }
+      });
+
       function init() {
         if (!document.body) {
           setTimeout(init, 100);

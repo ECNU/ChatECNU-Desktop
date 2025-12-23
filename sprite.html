@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Sprite</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .sprite-container {
+      position: relative;
+      width: 64px;
+      height: 64px;
+    }
+    .sprite-ball {
+      width: 56px;
+      height: 56px;
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      border-radius: 50%;
+      background: linear-gradient(
+        135deg,
+        #667eea 0%,
+        #764ba2 25%,
+        #f093fb 50%,
+        #f5576c 75%,
+        #667eea 100%
+      );
+      background-size: 400% 400%;
+      animation: flow 3s ease infinite;
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      transition: transform 0.15s, border-color 0.15s;
+      z-index: 2;
+    }
+    .sprite-ball:hover {
+      transform: scale(1.08);
+      border-color: rgba(255,255,255,0.6);
+    }
+    .sprite-ball.dragging {
+      cursor: grabbing;
+      transform: scale(1.0);
+    }
+    .sprite-icon {
+      width: 32px;
+      height: 32px;
+      pointer-events: none;
+    }
+    @keyframes flow {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    /* 旋转光环 */
+    .orbit-ring {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: rgba(102, 126, 234, 0.8);
+      border-right-color: rgba(102, 126, 234, 0.4);
+      animation: orbit 1.5s linear infinite;
+      z-index: 1;
+    }
+    @keyframes orbit {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="sprite-container" id="container">
+    <div class="orbit-ring"></div>
+    <div class="sprite-ball" id="sprite">
+      <img id="sprite-icon" class="sprite-icon" src="" alt="icon">
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+    const container = document.getElementById('container');
+    const sprite = document.getElementById('sprite');
+
+    // 接收图标
+    ipcRenderer.on('set-sprite-icon', (event, dataUrl) => {
+      document.getElementById('sprite-icon').src = dataUrl;
+    });
+
+    // 手动拖拽实现 - 使用绝对位置
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // 左键
+        // 同步获取位置
+        ipcRenderer.invoke('sprite-get-position').then(winPos => {
+          isDragging = true;
+          // 记录鼠标相对于窗口的偏移（使用当前鼠标位置）
+          dragOffsetX = e.screenX - winPos.x;
+          dragOffsetY = e.screenY - winPos.y;
+          sprite.classList.add('dragging');
+        });
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        // 直接设置窗口到目标位置
+        const newX = e.screenX - dragOffsetX;
+        const newY = e.screenY - dragOffsetY;
+        ipcRenderer.send('sprite-set-position', newX, newY);
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (e.button === 0) {
+        isDragging = false;
+        sprite.classList.remove('dragging');
+      }
+    });
+
+    // 双击检测
+    let lastClickTime = 0;
+    container.addEventListener('click', (e) => {
+      if (e.button === 0) {
+        const now = Date.now();
+        if (now - lastClickTime < 300) {
+          ipcRenderer.send('sprite-restore');
+          lastClickTime = 0;
+        } else {
+          lastClickTime = now;
+        }
+      }
+    });
+
+    // 右键菜单
+    container.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      ipcRenderer.send('sprite-context-menu');
+    });
+  </script>
+</body>
+</html>

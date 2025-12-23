@@ -1,7 +1,20 @@
-const { app, BrowserWindow, BrowserView, Tray, Menu, nativeImage, shell, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, Tray, Menu, nativeImage, shell, ipcMain, dialog, screen } = require('electron');
 const path = require('path');
+const Store = require('electron-store');
 const { version } = require('./package.json');
 const { initUpdater, checkForUpdates, autoCheckOnStartup } = require('./updater');
+
+// 配置存储
+const store = new Store({
+  defaults: {
+    tableExport: true,
+    spriteMode: false,
+    minimizeToTray: true,
+    uatMode: false,
+    uatActive: false  // UAT 环境当前是否激活
+  }
+});
+
 
 // 应用标题
 const APP_TITLE = `ChatECNU Desktop v${version}`;
@@ -24,10 +37,15 @@ let mainWindow;
 let view; // BrowserView 实例
 let tray = null;
 let isQuitting = false;
+let spriteWindow = null; // 精灵模式悬浮球窗口
+let settingsWindow = null; // 设置窗口
 
 function createWindow() {
   // 图标路径
   const iconPath = getIconPath('favicon.ico');
+  const isUatModeEnabled = store.get('uatMode'); // UAT 功能是否启用
+  const isUatActive = store.get('uatActive'); // UAT 环境是否激活
+  const shouldUseUat = isUatModeEnabled && isUatActive; // 启动时是否使用 UAT
   
   // 创建主窗口（App Shell）
   mainWindow = new BrowserWindow({
@@ -36,7 +54,7 @@ function createWindow() {
     resizable: true,
     titleBarStyle: 'hidden', // 隐藏原生标题栏，但保留控制按钮
     titleBarOverlay: {
-      color: '#1a1a2e', // 标题栏背景色
+      color: shouldUseUat ? '#bf360c' : '#1a1a2e',
       symbolColor: '#ffffff', // 控制按钮图标颜色
       height: 40 // 强制高度，确保与前端 CSS 完全一致
     },
@@ -63,6 +81,8 @@ function createWindow() {
     mainWindow.webContents.send('set-version', version);
     // 同步最大化状态
     mainWindow.webContents.send('maximize-change', mainWindow.isMaximized());
+    // 发送 UAT 模式信息
+    mainWindow.webContents.send('set-uat-mode', { enabled: isUatModeEnabled, active: shouldUseUat });
   });
 
   // 创建 BrowserView 加载远程内容
@@ -112,7 +132,7 @@ function createWindow() {
   });
 
   // 允许的域名列表
-  const allowedDomains = ['https://chat.ecnu.edu.cn', 'https://sso.ecnu.edu.cn'];
+  const allowedDomains = ['https://chat.ecnu.edu.cn', 'https://sso.ecnu.edu.cn', 'http://59.78.189.137'];
   const isAllowedUrl = (url) => allowedDomains.some(domain => url.startsWith(domain));
 
   // 禁止打开新窗口
@@ -144,13 +164,20 @@ function createWindow() {
   });
 
   // 加载目标网站
-  view.webContents.loadURL('https://chat.ecnu.edu.cn');
+  const startUrl = shouldUseUat ? 'http://59.78.189.137' : 'https://chat.ecnu.edu.cn';
+  view.webContents.loadURL(startUrl);
 
   // 拦截窗口关闭事件
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
+      if (store.get('minimizeToTray')) {
+        event.preventDefault();
+        mainWindow.hide();
+      } else {
+        // 不最小化到托盘时，直接退出应用
+        isQuitting = true;
+        app.quit();
+      }
     }
   });
 
@@ -185,6 +212,25 @@ ipcMain.on('reload-page', () => {
   }
 });
 
+// IPC: 切换环境
+ipcMain.on('switch-env', (event, isUat) => {
+  // 保存 UAT 激活状态
+  store.set('uatActive', isUat);
+  
+  if (view && view.webContents) {
+    const url = isUat ? 'http://59.78.189.137' : 'https://chat.ecnu.edu.cn';
+    view.webContents.loadURL(url);
+  }
+  // 更新 titleBarOverlay 颜色
+  if (mainWindow) {
+    mainWindow.setTitleBarOverlay({
+      color: isUat ? '#bf360c' : '#1a1a2e',
+      symbolColor: '#ffffff',
+      height: 40
+    });
+  }
+});
+
 // IPC: 下载更新
 ipcMain.on('download-update', () => {
   const { downloadUpdate } = require('./updater');
@@ -211,6 +257,197 @@ ipcMain.on('install-update', () => {
       mainWindow.close();
     }
     quitAndInstall();
+  }
+});
+
+// ========== 精灵模式（悬浮球）==========
+const SPRITE_SIZE = 64;
+
+function createSpriteWindow() {
+  if (spriteWindow) {
+    spriteWindow.show();
+    return;
+  }
+
+  const iconPath = getIconPath('favicon.ico');
+  // 使用主窗口所在的显示器
+  const mainBounds = mainWindow ? mainWindow.getBounds() : { x: 0, y: 0 };
+  const display = screen.getDisplayNearestPoint({ x: mainBounds.x, y: mainBounds.y });
+  const { x: workX, y: workY, width: screenWidth, height: screenHeight } = display.workArea;
+
+  spriteWindow = new BrowserWindow({
+    width: SPRITE_SIZE,
+    height: SPRITE_SIZE,
+    x: workX + screenWidth - SPRITE_SIZE - 20,
+    y: workY + Math.floor(screenHeight / 2),
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    skipTaskbar: true,
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    }
+  });
+
+  spriteWindow.loadFile('sprite.html');
+  spriteWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  // 页面加载完成后发送图标
+  spriteWindow.webContents.on('did-finish-load', () => {
+    const icon = nativeImage.createFromPath(iconPath);
+    spriteWindow.webContents.send('set-sprite-icon', icon.toDataURL());
+  });
+
+  spriteWindow.on('closed', () => {
+    spriteWindow = null;
+  });
+}
+
+// IPC: 进入精灵模式
+ipcMain.on('enter-sprite-mode', () => {
+  if (mainWindow) {
+    mainWindow.hide();
+  }
+  createSpriteWindow();
+});
+
+// IPC: 恢复主窗口
+ipcMain.on('sprite-restore', () => {
+  if (spriteWindow) {
+    spriteWindow.close();
+    spriteWindow = null;
+  }
+  if (mainWindow) {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+});
+
+// IPC: 获取悬浮球位置
+ipcMain.handle('sprite-get-position', () => {
+  if (!spriteWindow) return { x: 0, y: 0 };
+  const [x, y] = spriteWindow.getPosition();
+  return { x, y };
+});
+
+// IPC: 设置悬浮球位置
+ipcMain.on('sprite-set-position', (event, x, y) => {
+  if (spriteWindow) {
+    spriteWindow.setPosition(x, y);
+  }
+});
+
+// IPC: 悬浮球右键菜单
+ipcMain.on('sprite-context-menu', () => {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: '恢复窗口',
+      click: () => {
+        if (spriteWindow) {
+          spriteWindow.close();
+          spriteWindow = null;
+        }
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+  menu.popup({ window: spriteWindow });
+});
+
+// ========== 设置窗口 ==========
+function createSettingsWindow() {
+  if (settingsWindow) {
+    settingsWindow.focus();
+    return;
+  }
+
+  const iconPath = getIconPath('favicon.ico');
+  
+  settingsWindow = new BrowserWindow({
+    width: 400,
+    height: 400,
+    parent: mainWindow,
+    modal: false,
+    frame: false,
+    resizable: false,
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    }
+  });
+
+  settingsWindow.loadFile('settings.html');
+
+  settingsWindow.on('closed', () => {
+    settingsWindow = null;
+  });
+}
+
+// IPC: 打开设置窗口
+ipcMain.on('open-settings', () => {
+  createSettingsWindow();
+});
+
+// IPC: 关闭设置窗口
+ipcMain.on('close-settings', () => {
+  if (settingsWindow) {
+    settingsWindow.close();
+  }
+});
+
+// IPC: 获取设置
+ipcMain.handle('get-settings', () => {
+  return {
+    tableExport: store.get('tableExport'),
+    spriteMode: store.get('spriteMode'),
+    minimizeToTray: store.get('minimizeToTray'),
+    uatMode: store.get('uatMode')
+  };
+});
+
+// IPC: 保存设置
+ipcMain.on('save-settings', (event, settings) => {
+  store.set('tableExport', settings.tableExport);
+  store.set('spriteMode', settings.spriteMode);
+  store.set('minimizeToTray', settings.minimizeToTray);
+  store.set('uatMode', settings.uatMode);
+  
+  // 通知主窗口更新设置
+  if (mainWindow) {
+    mainWindow.webContents.send('settings-changed', settings);
+    
+    // 如果关闭 UAT 功能，重置激活状态并恢复颜色
+    if (!settings.uatMode) {
+      store.set('uatActive', false);
+      mainWindow.setTitleBarOverlay({
+        color: '#1a1a2e',
+        symbolColor: '#ffffff',
+        height: 40
+      });
+    }
+    
+    // 更新 UAT 模式开关显示
+    const isActive = settings.uatMode ? store.get('uatActive') : false;
+    mainWindow.webContents.send('set-uat-mode', { enabled: settings.uatMode, active: isActive });
+  }
+  // 通知 BrowserView 更新设置
+  if (view) {
+    view.webContents.send('settings-changed', settings);
   }
 });
 
