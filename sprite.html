@@ -17,6 +17,8 @@
       user-select: none;
       -webkit-user-select: none;
     }
+
+    /* 悬浮球容器 */
     .sprite-container {
       position: relative;
       width: 64px;
@@ -38,7 +40,7 @@
         #667eea 100%
       );
       background-size: 400% 400%;
-      animation: flow 3s ease infinite;
+      animation: flow 8s ease infinite;
       border: 2px solid rgba(255,255,255,0.3);
       display: flex;
       align-items: center;
@@ -55,10 +57,40 @@
       cursor: grabbing;
       transform: scale(1.0);
     }
+    /* 录音中状态 */
+    .sprite-ball.recording {
+      background: linear-gradient(
+        135deg,
+        #e53935 0%,
+        #d32f2f 25%,
+        #ff5252 50%,
+        #ff1744 75%,
+        #e53935 100%
+      );
+      animation: flow 2s ease infinite, pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.6); }
+      50% { box-shadow: 0 0 0 8px rgba(229, 57, 53, 0); }
+    }
     .sprite-icon {
       width: 32px;
       height: 32px;
       pointer-events: none;
+    }
+    /* 录音图标 */
+    .recording-icon {
+      display: none;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 4px;
+    }
+    .sprite-ball.recording .sprite-icon {
+      display: none;
+    }
+    .sprite-ball.recording .recording-icon {
+      display: block;
     }
     @keyframes flow {
       0% { background-position: 0% 50%; }
@@ -76,8 +108,14 @@
       border: 2px solid transparent;
       border-top-color: rgba(102, 126, 234, 0.8);
       border-right-color: rgba(102, 126, 234, 0.4);
-      animation: orbit 1.5s linear infinite;
+      animation: orbit 4s linear infinite;
       z-index: 1;
+    }
+    /* 录音状态：快速旋转红色光环 */
+    .sprite-container.recording .orbit-ring {
+      border-top-color: rgba(229, 57, 53, 0.8);
+      border-right-color: rgba(229, 57, 53, 0.4);
+      animation: orbit 1.2s linear infinite;
     }
     @keyframes orbit {
       from { transform: rotate(0deg); }
@@ -90,6 +128,7 @@
     <div class="orbit-ring"></div>
     <div class="sprite-ball" id="sprite">
       <img id="sprite-icon" class="sprite-icon" src="" alt="icon">
+      <div class="recording-icon"></div>
     </div>
   </div>
 
@@ -103,17 +142,26 @@
       document.getElementById('sprite-icon').src = dataUrl;
     });
 
-    // 手动拖拽实现 - 使用绝对位置
+    // 监听录音状态变化
+    ipcRenderer.on('meeting-recording-state', (event, isRecording) => {
+      if (isRecording) {
+        sprite.classList.add('recording');
+        container.classList.add('recording');
+      } else {
+        sprite.classList.remove('recording');
+        container.classList.remove('recording');
+      }
+    });
+
+    // ========== 拖拽逻辑 ==========
     let isDragging = false;
     let dragOffsetX = 0;
     let dragOffsetY = 0;
 
     container.addEventListener('mousedown', (e) => {
-      if (e.button === 0) { // 左键
-        // 同步获取位置
+      if (e.button === 0) {
         ipcRenderer.invoke('sprite-get-position').then(winPos => {
           isDragging = true;
-          // 记录鼠标相对于窗口的偏移（使用当前鼠标位置）
           dragOffsetX = e.screenX - winPos.x;
           dragOffsetY = e.screenY - winPos.y;
           sprite.classList.add('dragging');
@@ -123,7 +171,6 @@
 
     document.addEventListener('mousemove', (e) => {
       if (isDragging) {
-        // 直接设置窗口到目标位置
         const newX = e.screenX - dragOffsetX;
         const newY = e.screenY - dragOffsetY;
         ipcRenderer.send('sprite-set-position', newX, newY);
@@ -137,13 +184,20 @@
       }
     });
 
-    // 双击检测
+    // 双击检测 - 打开会议助手窗口（需要检查可用性）
     let lastClickTime = 0;
-    container.addEventListener('click', (e) => {
-      if (e.button === 0) {
+    container.addEventListener('click', async (e) => {
+      if (e.button === 0 && !isDragging) {
         const now = Date.now();
         if (now - lastClickTime < 300) {
-          ipcRenderer.send('sprite-restore');
+          // 双击：检查会议助手是否可用
+          const available = await ipcRenderer.invoke('meeting-assistant-available');
+          if (available) {
+            ipcRenderer.send('open-meeting-assistant');
+          } else {
+            // 不可用时恢复主窗口
+            ipcRenderer.send('sprite-restore');
+          }
           lastClickTime = 0;
         } else {
           lastClickTime = now;
