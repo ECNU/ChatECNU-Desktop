@@ -7,7 +7,8 @@
     "start": "electron .",
     "dev": "electron .",
     "build": "dotenv -- electron-builder",
-    "build:win": "dotenv -- electron-builder --win"
+    "build:win": "dotenv -- electron-builder --win",
+    "upload": "dotenv -- node upload-to-oss.js"
   },
   "keywords": [
     "electron",
@@ -21,6 +22,7 @@
     "url": "https://github.com/SUGE2016/chatecnu-desktop-app.git"
   },
   "devDependencies": {
+    "ali-oss": "^6.23.0",
     "dotenv-cli": "^11.0.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1"
@@ -60,9 +62,8 @@
     },
     "publish": [
       {
-        "provider": "github",
-        "owner": "SUGE2016",
-        "repo": "chatecnu-desktop-app"
+        "provider": "generic",
+        "url": "https://ecnunic-data-public.oss-cn-shanghai.aliyuncs.com/chatecnu-desktop/releases/"
       }
     ]
   },

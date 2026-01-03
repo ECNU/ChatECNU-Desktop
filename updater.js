@@ -1,8 +1,10 @@
 const { autoUpdater } = require('electron-updater');
-// const { dialog } = require('electron'); // 移除 dialog
 
 let mainWindow = null;
 let isDownloading = false;
+
+// 阿里云 OSS 更新服务器
+const UPDATE_SERVER_URL = 'https://ecnunic-data-public.oss-cn-shanghai.aliyuncs.com/chatecnu-desktop/releases/';
 
 /**
  * 初始化更新器
@@ -10,6 +12,12 @@ let isDownloading = false;
  */
 function initUpdater(win) {
   mainWindow = win;
+
+  // 设置更新服务器地址（阿里云 OSS）
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: UPDATE_SERVER_URL
+  });
 
   // 禁用自动下载，手动控制
   autoUpdater.autoDownload = false;
