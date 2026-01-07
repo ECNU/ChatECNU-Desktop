@@ -144,17 +144,6 @@
   <div class="content">
     <div class="setting-item" style="display:none">
       <div class="setting-label">
-        <div class="setting-title">表格自动发现</div>
-        <div class="setting-desc">自动检测网页中的表格并显示导出按钮</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-table-export">
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
-
-    <div class="setting-item" style="display:none">
-      <div class="setting-label">
         <div class="setting-title">精灵模式</div>
         <div class="setting-desc">在标题栏显示"收起"按钮，可收起为悬浮球</div>
       </div>
@@ -191,14 +180,12 @@
   <script>
     const { ipcRenderer } = require('electron');
 
-    const toggleTableExport = document.getElementById('toggle-table-export');
     const toggleSpriteMode = document.getElementById('toggle-sprite-mode');
     const toggleMinimizeToTray = document.getElementById('toggle-minimize-to-tray');
     const toggleUatMode = document.getElementById('toggle-uat-mode');
 
     // 加载当前设置
     ipcRenderer.invoke('get-settings').then(settings => {
-      toggleTableExport.checked = settings.tableExport === true;
       toggleSpriteMode.checked = settings.spriteMode === true;
       toggleMinimizeToTray.checked = settings.minimizeToTray !== false;
       toggleUatMode.checked = settings.uatMode === true;
@@ -207,7 +194,6 @@
     // 保存设置
     function saveSettings() {
       const settings = {
-        tableExport: toggleTableExport.checked,
         spriteMode: toggleSpriteMode.checked,
         minimizeToTray: toggleMinimizeToTray.checked,
         uatMode: toggleUatMode.checked
@@ -215,7 +201,6 @@
       ipcRenderer.send('save-settings', settings);
     }
 
-    toggleTableExport.addEventListener('change', saveSettings);
     toggleSpriteMode.addEventListener('change', saveSettings);
     toggleMinimizeToTray.addEventListener('change', saveSettings);
     toggleUatMode.addEventListener('change', saveSettings);
