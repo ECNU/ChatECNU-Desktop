@@ -11,8 +11,7 @@ const store = new Store({
     spriteMode: false,    // 暂时关闭
     minimizeToTray: true,
     uatMode: false,       // 暂时关闭
-    uatActive: false,
-    meetingAssistant: false
+    uatActive: false
   }
 });
 
@@ -341,198 +340,34 @@ ipcMain.on('sprite-set-position', (event, x, y) => {
   }
 });
 
-// 检查会议助手是否可用
-function isMeetingAssistantAvailable() {
-  return store.get('meetingAssistant') && store.get('uatMode') && store.get('uatActive');
-}
-
 // IPC: 悬浮球右键菜单
 ipcMain.on('sprite-context-menu', () => {
-  const meetingAvailable = isMeetingAssistantAvailable();
-  
-  const menuTemplate = [];
-  
-  // 只有在会议助手可用时才显示菜单项
-  if (meetingAvailable) {
-    menuTemplate.push({
-      label: '会议助手',
+  const menuTemplate = [
+    {
+      label: '恢复窗口',
       click: () => {
-        createMeetingWindow();
+        if (spriteWindow) {
+          spriteWindow.close();
+          spriteWindow = null;
+        }
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
       }
-    });
-    menuTemplate.push({ type: 'separator' });
-  }
-  
-  menuTemplate.push({
-    label: '恢复窗口',
-    click: () => {
-      if (spriteWindow) {
-        spriteWindow.close();
-        spriteWindow = null;
-      }
-      if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => {
+        isQuitting = true;
+        app.quit();
       }
     }
-  });
-  menuTemplate.push({ type: 'separator' });
-  menuTemplate.push({
-    label: '退出',
-    click: () => {
-      isQuitting = true;
-      app.quit();
-    }
-  });
+  ];
   
   const menu = Menu.buildFromTemplate(menuTemplate);
   menu.popup({ window: spriteWindow });
-});
-
-// ========== 会议助手 ==========
-const { MeetingAPI } = require('./meeting-api');
-let meetingAPI = null;
-let meetingRecorderActive = false;
-let meetingWindow = null; // 独立会议助手窗口
-
-// 创建独立会议助手窗口
-function createMeetingWindow() {
-  if (meetingWindow) {
-    meetingWindow.focus();
-    return;
-  }
-
-  const iconPath = getIconPath('chatecnu.ico');
-  
-  meetingWindow = new BrowserWindow({
-    width: 380,
-    height: 480,
-    frame: false,
-    resizable: false,
-    icon: iconPath,
-    webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
-    }
-  });
-
-  meetingWindow.loadFile('meeting.html');
-
-  meetingWindow.on('closed', () => {
-    meetingWindow = null;
-  });
-}
-
-// IPC: 检查会议助手是否可用
-ipcMain.handle('meeting-assistant-available', () => {
-  return isMeetingAssistantAvailable();
-});
-
-// IPC: 打开会议助手窗口
-ipcMain.on('open-meeting-assistant', () => {
-  if (isMeetingAssistantAvailable()) {
-    createMeetingWindow();
-  }
-});
-
-// IPC: 关闭会议助手窗口
-ipcMain.on('close-meeting-window', () => {
-  if (meetingWindow) {
-    meetingWindow.close();
-  }
-});
-
-// IPC: 设置会议窗口置顶
-ipcMain.on('meeting-set-always-on-top', (event, alwaysOnTop) => {
-  if (meetingWindow) {
-    meetingWindow.setAlwaysOnTop(alwaysOnTop);
-  }
-});
-
-// 广播录音状态到悬浮球
-function broadcastRecordingState(isRecording) {
-  if (spriteWindow) {
-    spriteWindow.webContents.send('meeting-recording-state', isRecording);
-  }
-}
-
-// IPC: 开始会议
-ipcMain.handle('meeting-start', async () => {
-  try {
-    // 初始化 API（如果需要）
-    if (!meetingAPI) {
-      meetingAPI = new MeetingAPI();
-    }
-    
-    // 创建会议
-    const result = await meetingAPI.createMeeting('desktop-user', '桌面会议');
-    meetingRecorderActive = true;
-    
-    // 广播状态到悬浮球
-    broadcastRecordingState(true);
-    
-    console.log('[Meeting] 会议已创建:', result.meetingId);
-    return { success: true, meetingId: result.meetingId };
-  } catch (error) {
-    console.error('[Meeting] 创建会议失败:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// IPC: 结束会议
-ipcMain.handle('meeting-end', async () => {
-  try {
-    meetingRecorderActive = false;
-    
-    // 广播状态到悬浮球
-    broadcastRecordingState(false);
-    
-    if (meetingAPI && meetingAPI.getMeetingId()) {
-      const result = await meetingAPI.endMeeting();
-      console.log('[Meeting] 会议已结束');
-      return { success: true, finalSummary: result.finalSummary };
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('[Meeting] 结束会议失败:', error);
-    return { success: false, error: error.message };
-  }
-});
-
-// IPC: 提交音频片段
-ipcMain.handle('meeting-submit-audio', async (event, { audioData, sequence, timestamp }) => {
-  try {
-    if (!meetingAPI || !meetingAPI.getMeetingId()) {
-      throw new Error('会议未创建');
-    }
-    
-    // 将 base64 转换为 Blob（在主进程中需要使用 Buffer）
-    const audioBuffer = Buffer.from(audioData, 'base64');
-    
-    // 这里需要使用 fetch 或 node-fetch 发送请求
-    // 暂时返回模拟数据，实际实现需要对接后台
-    console.log(`[Meeting] 音频片段 #${sequence} 已提交, 大小: ${audioBuffer.length} bytes`);
-    
-    // 发送 ASR 结果到所有会议相关窗口
-    const asrResult = {
-      speaker: '讲话人',
-      transcript: `音频片段 #${sequence} 已处理`,
-      summary: null
-    };
-    
-    if (spriteWindow) {
-      spriteWindow.webContents.send('meeting-asr-result', asrResult);
-    }
-    if (meetingWindow) {
-      meetingWindow.webContents.send('meeting-asr-result', asrResult);
-    }
-    
-    return { success: true };
-  } catch (error) {
-    console.error('[Meeting] 提交音频失败:', error);
-    return { success: false, error: error.message };
-  }
 });
 
 // ========== 设置窗口 ==========
@@ -546,11 +381,12 @@ function createSettingsWindow() {
   
   settingsWindow = new BrowserWindow({
     width: 400,
-    height: 480,
+    height: 150,
     parent: mainWindow,
     modal: false,
     frame: false,
     resizable: false,
+    useContentSize: true,
     icon: iconPath,
     webPreferences: {
       nodeIntegration: true,
@@ -583,8 +419,7 @@ ipcMain.handle('get-settings', () => {
     tableExport: store.get('tableExport'),
     spriteMode: store.get('spriteMode'),
     minimizeToTray: store.get('minimizeToTray'),
-    uatMode: store.get('uatMode'),
-    meetingAssistant: store.get('meetingAssistant')
+    uatMode: store.get('uatMode')
   };
 });
 
@@ -594,11 +429,6 @@ ipcMain.on('save-settings', (event, settings) => {
   store.set('spriteMode', settings.spriteMode);
   store.set('minimizeToTray', settings.minimizeToTray);
   store.set('uatMode', settings.uatMode);
-  
-  // 会议助手必须在 UAT 模式下才能开启
-  const meetingEnabled = settings.uatMode && settings.meetingAssistant;
-  store.set('meetingAssistant', meetingEnabled);
-  settings.meetingAssistant = meetingEnabled;
   
   // 通知主窗口更新设置
   if (mainWindow) {

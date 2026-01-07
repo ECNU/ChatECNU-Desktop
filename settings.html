@@ -186,17 +186,6 @@
       </label>
     </div>
 
-    <div class="setting-item" id="meeting-setting-item" style="display:none">
-      <div class="setting-label">
-        <div class="setting-title">会议助手</div>
-        <div class="setting-desc">启用会议录音和实时转写功能</div>
-        <div class="setting-hint" id="meeting-hint">需要先启用 UAT 模式</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" id="toggle-meeting-assistant" disabled>
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
   </div>
 
   <script>
@@ -206,33 +195,13 @@
     const toggleSpriteMode = document.getElementById('toggle-sprite-mode');
     const toggleMinimizeToTray = document.getElementById('toggle-minimize-to-tray');
     const toggleUatMode = document.getElementById('toggle-uat-mode');
-    const toggleMeetingAssistant = document.getElementById('toggle-meeting-assistant');
-    const meetingSettingItem = document.getElementById('meeting-setting-item');
-    const meetingHint = document.getElementById('meeting-hint');
-
-    // 更新会议助手开关状态
-    function updateMeetingToggleState() {
-      const isUatEnabled = toggleUatMode.checked;
-      toggleMeetingAssistant.disabled = !isUatEnabled;
-      meetingSettingItem.classList.toggle('disabled', !isUatEnabled);
-      meetingHint.style.display = isUatEnabled ? 'none' : 'block';
-      
-      // 如果 UAT 关闭，同时关闭会议助手
-      if (!isUatEnabled && toggleMeetingAssistant.checked) {
-        toggleMeetingAssistant.checked = false;
-        saveSettings();
-      }
-    }
 
     // 加载当前设置
     ipcRenderer.invoke('get-settings').then(settings => {
-      toggleTableExport.checked = settings.tableExport === true;  // 默认关闭
-      toggleSpriteMode.checked = settings.spriteMode === true;    // 默认关闭
+      toggleTableExport.checked = settings.tableExport === true;
+      toggleSpriteMode.checked = settings.spriteMode === true;
       toggleMinimizeToTray.checked = settings.minimizeToTray !== false;
-      toggleUatMode.checked = settings.uatMode === true;          // 默认关闭
-      toggleMeetingAssistant.checked = settings.meetingAssistant === true;
-      
-      updateMeetingToggleState();
+      toggleUatMode.checked = settings.uatMode === true;
     });
 
     // 保存设置
@@ -241,8 +210,7 @@
         tableExport: toggleTableExport.checked,
         spriteMode: toggleSpriteMode.checked,
         minimizeToTray: toggleMinimizeToTray.checked,
-        uatMode: toggleUatMode.checked,
-        meetingAssistant: toggleMeetingAssistant.checked
+        uatMode: toggleUatMode.checked
       };
       ipcRenderer.send('save-settings', settings);
     }
@@ -250,11 +218,7 @@
     toggleTableExport.addEventListener('change', saveSettings);
     toggleSpriteMode.addEventListener('change', saveSettings);
     toggleMinimizeToTray.addEventListener('change', saveSettings);
-    toggleUatMode.addEventListener('change', () => {
-      updateMeetingToggleState();
-      saveSettings();
-    });
-    toggleMeetingAssistant.addEventListener('change', saveSettings);
+    toggleUatMode.addEventListener('change', saveSettings);
 
     // 关闭窗口
     document.getElementById('btn-close').addEventListener('click', () => {
