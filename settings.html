@@ -142,7 +142,7 @@
   </div>
 
   <div class="content">
-    <div class="setting-item">
+    <div class="setting-item" style="display:none">
       <div class="setting-label">
         <div class="setting-title">表格自动发现</div>
         <div class="setting-desc">自动检测网页中的表格并显示导出按钮</div>
@@ -153,7 +153,7 @@
       </label>
     </div>
 
-    <div class="setting-item">
+    <div class="setting-item" style="display:none">
       <div class="setting-label">
         <div class="setting-title">精灵模式</div>
         <div class="setting-desc">在标题栏显示"收起"按钮，可收起为悬浮球</div>
@@ -175,7 +175,7 @@
       </label>
     </div>
 
-    <div class="setting-item">
+    <div class="setting-item" style="display:none">
       <div class="setting-label">
         <div class="setting-title">UAT 模式</div>
         <div class="setting-desc">启用后在标题栏显示环境切换开关</div>
@@ -186,7 +186,7 @@
       </label>
     </div>
 
-    <div class="setting-item" id="meeting-setting-item">
+    <div class="setting-item" id="meeting-setting-item" style="display:none">
       <div class="setting-label">
         <div class="setting-title">会议助手</div>
         <div class="setting-desc">启用会议录音和实时转写功能</div>
@@ -226,10 +226,10 @@
 
     // 加载当前设置
     ipcRenderer.invoke('get-settings').then(settings => {
-      toggleTableExport.checked = settings.tableExport !== false;
-      toggleSpriteMode.checked = settings.spriteMode === true;
+      toggleTableExport.checked = settings.tableExport === true;  // 默认关闭
+      toggleSpriteMode.checked = settings.spriteMode === true;    // 默认关闭
       toggleMinimizeToTray.checked = settings.minimizeToTray !== false;
-      toggleUatMode.checked = settings.uatMode === true;
+      toggleUatMode.checked = settings.uatMode === true;          // 默认关闭
       toggleMeetingAssistant.checked = settings.meetingAssistant === true;
       
       updateMeetingToggleState();

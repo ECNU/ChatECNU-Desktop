@@ -7,12 +7,12 @@ const { initUpdater, checkForUpdates, autoCheckOnStartup } = require('./updater'
 // 配置存储
 const store = new Store({
   defaults: {
-    tableExport: true,
-    spriteMode: false,
+    tableExport: false,   // 暂时关闭
+    spriteMode: false,    // 暂时关闭
     minimizeToTray: true,
-    uatMode: false,
-    uatActive: false,  // UAT 环境当前是否激活
-    meetingAssistant: false  // 会议助手功能（需要 UAT 模式）
+    uatMode: false,       // 暂时关闭
+    uatActive: false,
+    meetingAssistant: false
   }
 });
 
@@ -43,7 +43,7 @@ let settingsWindow = null; // 设置窗口
 
 function createWindow() {
   // 图标路径
-  const iconPath = getIconPath('favicon.ico');
+  const iconPath = getIconPath('chatecnu.ico');
   const isUatModeEnabled = store.get('uatMode'); // UAT 功能是否启用
   const isUatActive = store.get('uatActive'); // UAT 环境是否激活
   const shouldUseUat = isUatModeEnabled && isUatActive; // 启动时是否使用 UAT
@@ -270,7 +270,7 @@ function createSpriteWindow() {
     return;
   }
 
-  const iconPath = getIconPath('favicon.ico');
+  const iconPath = getIconPath('chatecnu.ico');
   // 使用主窗口所在的显示器
   const mainBounds = mainWindow ? mainWindow.getBounds() : { x: 0, y: 0 };
   const display = screen.getDisplayNearestPoint({ x: mainBounds.x, y: mainBounds.y });
@@ -402,7 +402,7 @@ function createMeetingWindow() {
     return;
   }
 
-  const iconPath = getIconPath('favicon.ico');
+  const iconPath = getIconPath('chatecnu.ico');
   
   meetingWindow = new BrowserWindow({
     width: 380,
@@ -542,7 +542,7 @@ function createSettingsWindow() {
     return;
   }
 
-  const iconPath = getIconPath('favicon.ico');
+  const iconPath = getIconPath('chatecnu.ico');
   
   settingsWindow = new BrowserWindow({
     width: 400,
@@ -644,7 +644,7 @@ if (!gotTheLock) {
   createWindow();
 
   // 创建系统托盘（Windows 会根据 DPI 自动选择合适的图标尺寸）
-  const trayIconPath = getIconPath('favicon.ico');
+  const trayIconPath = getIconPath('chatecnu.ico');
   const trayIcon = nativeImage.createFromPath(trayIconPath);
   
   tray = new Tray(trayIcon);
