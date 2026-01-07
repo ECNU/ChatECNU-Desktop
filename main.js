@@ -7,7 +7,6 @@ const { initUpdater, checkForUpdates, autoCheckOnStartup } = require('./updater'
 // 配置存储
 const store = new Store({
   defaults: {
-    tableExport: false,   // 暂时关闭
     spriteMode: false,    // 暂时关闭
     minimizeToTray: true,
     uatMode: false,       // 暂时关闭
@@ -191,16 +190,6 @@ function createWindow() {
     mainWindow = null;
   });
 }
-
-// IPC: 显示保存对话框（需要将 mainWindow 传给 dialog）
-ipcMain.handle('show-save-dialog', async (event, defaultName) => {
-  const result = await dialog.showSaveDialog(mainWindow, {
-    title: '导出表格',
-    defaultPath: defaultName,
-    filters: [{ name: 'Excel 文件', extensions: ['xlsx'] }]
-  });
-  return result.filePath;
-});
 
 // IPC: 检查更新
 ipcMain.on('check-for-updates', () => checkForUpdates(true));
@@ -416,7 +405,6 @@ ipcMain.on('close-settings', () => {
 // IPC: 获取设置
 ipcMain.handle('get-settings', () => {
   return {
-    tableExport: store.get('tableExport'),
     spriteMode: store.get('spriteMode'),
     minimizeToTray: store.get('minimizeToTray'),
     uatMode: store.get('uatMode')
@@ -425,7 +413,6 @@ ipcMain.handle('get-settings', () => {
 
 // IPC: 保存设置
 ipcMain.on('save-settings', (event, settings) => {
-  store.set('tableExport', settings.tableExport);
   store.set('spriteMode', settings.spriteMode);
   store.set('minimizeToTray', settings.minimizeToTray);
   store.set('uatMode', settings.uatMode);
