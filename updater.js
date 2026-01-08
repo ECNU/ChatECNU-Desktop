@@ -1,10 +1,12 @@
 const { autoUpdater } = require('electron-updater');
+const { UPDATE_SERVER_URL } = require('./oss-config');
 
 let mainWindow = null;
 let isDownloading = false;
 
-// 阿里云 OSS 更新服务器
-const UPDATE_SERVER_URL = 'https://ecnunic-data-public.oss-cn-shanghai.aliyuncs.com/chatecnu-desktop/releases/';
+// ========== 更新检查时间常量 ==========
+const UPDATE_CHECK_TIMEOUT = 15000; // 检查更新超时时间（毫秒）
+const UPDATE_CHECK_DEFAULT_DELAY = 3000; // 启动时检查更新的默认延迟（毫秒）
 
 /**
  * 初始化更新器
@@ -91,11 +93,11 @@ function checkForUpdates() {
     mainWindow.webContents.send('checking-for-update');
   }
 
-  // 设置 15 秒超时
+  // 设置超时
   const timeoutPromise = new Promise((_, reject) => {
     setTimeout(() => {
       reject(new Error('检查更新超时，请稍后重试'));
-    }, 15000);
+    }, UPDATE_CHECK_TIMEOUT);
   });
 
   Promise.race([
@@ -133,9 +135,9 @@ function quitAndInstall() {
 
 /**
  * 启动时自动检查更新（延迟执行）
- * @param {number} delay - 延迟时间（毫秒），默认 3 秒
+ * @param {number} delay - 延迟时间（毫秒），默认 UPDATE_CHECK_DEFAULT_DELAY
  */
-function autoCheckOnStartup(delay = 3000) {
+function autoCheckOnStartup(delay = UPDATE_CHECK_DEFAULT_DELAY) {
   setTimeout(() => {
     checkForUpdates();
   }, delay);

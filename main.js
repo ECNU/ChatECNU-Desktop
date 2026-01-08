@@ -21,6 +21,31 @@ const APP_TITLE = `ChatECNU Desktop v${version}`;
 // 判断是否为打包后的应用
 const isPackaged = app.isPackaged;
 
+// ========== 窗口尺寸常量 ==========
+const MAIN_WINDOW_WIDTH = 1280;
+const MAIN_WINDOW_HEIGHT = 768;
+const SETTINGS_WINDOW_WIDTH = 400;
+const SETTINGS_WINDOW_HEIGHT = 150;
+
+// ========== 标题栏常量 ==========
+const TITLEBAR_HEIGHT = 40;
+
+// ========== 颜色常量 ==========
+const COLOR_UAT = '#bf360c';
+const COLOR_DEFAULT = '#1a1a2e';
+const COLOR_SYMBOL = '#ffffff';
+
+// ========== URL 和域名常量 ==========
+const URL_PRODUCTION = 'https://chat.ecnu.edu.cn';
+const URL_UAT = 'http://59.78.189.137';
+const ALLOWED_DOMAINS = [URL_PRODUCTION, 'https://sso.ecnu.edu.cn', URL_UAT];
+
+// ========== 精灵窗口常量 ==========
+const SPRITE_WINDOW_EDGE_OFFSET = 20;
+
+// ========== 更新检查常量 ==========
+const UPDATE_CHECK_STARTUP_DELAY = 3000; // 启动时检查更新的延迟（毫秒）
+
 // 获取图标路径（打包后和开发时路径不同）
 function getIconPath(filename) {
   if (isPackaged) {
@@ -48,14 +73,14 @@ function createWindow() {
   
   // 创建主窗口（App Shell）
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 768,
+    width: MAIN_WINDOW_WIDTH,
+    height: MAIN_WINDOW_HEIGHT,
     resizable: true,
     titleBarStyle: 'hidden', // 隐藏原生标题栏，但保留控制按钮
     titleBarOverlay: {
-      color: shouldUseUat ? '#bf360c' : '#1a1a2e',
-      symbolColor: '#ffffff', // 控制按钮图标颜色
-      height: 40 // 强制高度，确保与前端 CSS 完全一致
+      color: shouldUseUat ? COLOR_UAT : COLOR_DEFAULT,
+      symbolColor: COLOR_SYMBOL, // 控制按钮图标颜色
+      height: TITLEBAR_HEIGHT // 强制高度，确保与前端 CSS 完全一致
     },
     icon: iconPath,
     title: APP_TITLE,
@@ -96,13 +121,12 @@ function createWindow() {
   
   mainWindow.setBrowserView(view);
   
-  // 当前标题栏高度（默认为 40，后续由前端动态更新）
-  let currentTitlebarHeight = 41;
+  // 当前标题栏高度（默认为 TITLEBAR_HEIGHT，后续由前端动态更新）
+  let currentTitlebarHeight = TITLEBAR_HEIGHT + 1; // +1 用于补偿边框
 
   // 设置 BrowserView 布局
   const updateViewBounds = () => {
     if (!mainWindow || !view) return;
-    const bounds = mainWindow.getBounds();
     const contentBounds = mainWindow.getContentBounds();
     view.setBounds({ 
       x: 0, 
@@ -131,8 +155,7 @@ function createWindow() {
   });
 
   // 允许的域名列表
-  const allowedDomains = ['https://chat.ecnu.edu.cn', 'https://sso.ecnu.edu.cn', 'http://59.78.189.137'];
-  const isAllowedUrl = (url) => allowedDomains.some(domain => url.startsWith(domain));
+  const isAllowedUrl = (url) => ALLOWED_DOMAINS.some(domain => url.startsWith(domain));
 
   // 禁止打开新窗口
   view.webContents.setWindowOpenHandler(({ url }) => {
@@ -163,7 +186,7 @@ function createWindow() {
   });
 
   // 加载目标网站
-  const startUrl = shouldUseUat ? 'http://59.78.189.137' : 'https://chat.ecnu.edu.cn';
+  const startUrl = shouldUseUat ? URL_UAT : URL_PRODUCTION;
   view.webContents.loadURL(startUrl);
 
   // 拦截窗口关闭事件
@@ -207,15 +230,15 @@ ipcMain.on('switch-env', (event, isUat) => {
   store.set('uatActive', isUat);
   
   if (view && view.webContents) {
-    const url = isUat ? 'http://59.78.189.137' : 'https://chat.ecnu.edu.cn';
+    const url = isUat ? URL_UAT : URL_PRODUCTION;
     view.webContents.loadURL(url);
   }
   // 更新 titleBarOverlay 颜色
   if (mainWindow) {
     mainWindow.setTitleBarOverlay({
-      color: isUat ? '#bf360c' : '#1a1a2e',
-      symbolColor: '#ffffff',
-      height: 40
+      color: isUat ? COLOR_UAT : COLOR_DEFAULT,
+      symbolColor: COLOR_SYMBOL,
+      height: TITLEBAR_HEIGHT
     });
   }
 });
@@ -267,7 +290,7 @@ function createSpriteWindow() {
   spriteWindow = new BrowserWindow({
     width: SPRITE_SIZE,
     height: SPRITE_SIZE,
-    x: workX + screenWidth - SPRITE_SIZE - 20,
+    x: workX + screenWidth - SPRITE_SIZE - SPRITE_WINDOW_EDGE_OFFSET,
     y: workY + Math.floor(screenHeight / 2),
     frame: false,
     transparent: true,
@@ -369,8 +392,8 @@ function createSettingsWindow() {
   const iconPath = getIconPath('chatecnu.ico');
   
   settingsWindow = new BrowserWindow({
-    width: 400,
-    height: 150,
+    width: SETTINGS_WINDOW_WIDTH,
+    height: SETTINGS_WINDOW_HEIGHT,
     parent: mainWindow,
     modal: false,
     frame: false,
@@ -425,9 +448,9 @@ ipcMain.on('save-settings', (event, settings) => {
     if (!settings.uatMode) {
       store.set('uatActive', false);
       mainWindow.setTitleBarOverlay({
-        color: '#1a1a2e',
-        symbolColor: '#ffffff',
-        height: 40
+        color: COLOR_DEFAULT,
+        symbolColor: COLOR_SYMBOL,
+        height: TITLEBAR_HEIGHT
       });
     }
     
@@ -533,7 +556,7 @@ if (!gotTheLock) {
   // 初始化更新器（仅在打包后启用）
   if (isPackaged) {
     initUpdater(mainWindow);
-    autoCheckOnStartup(3000); // 延迟 3 秒检查更新
+    autoCheckOnStartup(UPDATE_CHECK_STARTUP_DELAY);
   }
 });
 

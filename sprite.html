@@ -136,6 +136,9 @@
     const { ipcRenderer } = require('electron');
     const container = document.getElementById('container');
     const sprite = document.getElementById('sprite');
+    
+    // 双击检测时间阈值（毫秒）
+    const DOUBLE_CLICK_THRESHOLD = 300;
 
     // 接收图标
     ipcRenderer.on('set-sprite-icon', (event, dataUrl) => {
@@ -189,7 +192,7 @@
     container.addEventListener('click', async (e) => {
       if (e.button === 0 && !isDragging) {
         const now = Date.now();
-        if (now - lastClickTime < 300) {
+        if (now - lastClickTime < DOUBLE_CLICK_THRESHOLD) {
           // 双击：检查会议助手是否可用
           const available = await ipcRenderer.invoke('meeting-assistant-available');
           if (available) {
