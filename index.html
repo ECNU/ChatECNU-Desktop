@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ChatECNU Desktop</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #f1f3f4;
+      font-family: system-ui, -apple-system, "Microsoft YaHei", sans-serif;
+    }
+    #titlebar {
+      height: 41px;
+      box-sizing: border-box; /* 确保 padding/border 不会增加实际高度 */
+      border: none; /* 显式移除边框 */
+      background: #1a1a2e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+      user-select: none;
+      -webkit-app-region: drag; /* 允许拖拽 */
+      transition: background 0.3s;
+    }
+    #titlebar.uat-mode {
+      background: #bf360c;
+    }
+    /* 环境切换开关 */
+    .env-switch {
+      display: flex;
+      align-items: center;
+      margin: 0 8px;
+      -webkit-app-region: no-drag;
+    }
+    .env-label {
+      font-size: 11px;
+      margin-right: 6px;
+      opacity: 0.7;
+    }
+    .env-toggle {
+      position: relative;
+      width: 36px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .env-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .env-toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255,255,255,0.25);
+      transition: 0.3s;
+      border-radius: 18px;
+    }
+    .env-toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #fff;
+      transition: 0.3s;
+      border-radius: 50%;
+    }
+    .env-toggle input:checked + .env-toggle-slider {
+      background-color: #e65100;
+    }
+    .env-toggle input:checked + .env-toggle-slider:before {
+      transform: translateX(18px);
+    }
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      padding-left: 10px;
+    }
+    .titlebar-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 10px;
+    }
+    .titlebar-title {
+      font-size: 13px;
+      font-weight: 500;
+      margin-right: 20px;
+      opacity: 0.9;
+    }
+    .titlebar-menu button {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      -webkit-app-region: no-drag;
+    }
+    .titlebar-menu button:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .titlebar-menu {
+      display: flex;
+      align-items: center;
+    }
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      margin-right: 140px; /* 为原生窗口控制按钮留出空间 (约 138px) */
+      -webkit-app-region: no-drag;
+    }
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      padding: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .btn-icon:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .update-progress-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px; /* 恢复固定宽度 */
+      height: 28px; /* 恢复固定高度 */
+      margin-right: 0;
+      display: none;
+    }
+    .loading-spinner {
+      width: 14px; /* 恢复 Spinner 尺寸 */
+      height: 14px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s linear infinite;
+    }
+    .app-version {
+      opacity: 0.5;
+      font-size: 11px;
+      margin-left: 6px;
+      font-weight: normal;
+    }
+    .update-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px; /* 恢复容器最小宽度 */
+      height: 32px;    /* 恢复容器高度 */
+    }
+    /* 增加选择器权重以覆盖 .titlebar-menu button 的 padding 样式 */
+    .titlebar-menu .btn-update-icon {
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      padding: 0;   /* 关键：覆盖默认的 4px 10px padding */
+      width: 28px;  /* 恢复按钮容器尺寸 */
+      height: 28px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .titlebar-menu .btn-update-icon:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+    .titlebar-menu .btn-update-icon svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0; /* 防止被压缩 */
+    }
+    .btn-update-text {
+      background: #2196f3;
+      border: none;
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      display: none; /* 默认隐藏 */
+    }
+    .btn-update-text:hover {
+      background: #1976d2;
+    }
+    .btn-update-text:disabled {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      cursor: not-allowed;
+    }
+    .badge-dot {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 8px;
+      height: 8px;
+      background-color: #ff4444;
+      border-radius: 50%;
+      border: 1px solid #1a1a2e;
+      display: none;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* 移除自定义窗口控制按钮的样式 */
+  </style>
+</head>
+<body>
+  <div id="titlebar">
+    <div class="titlebar-left">
+      <!-- 图标 -->
+      <img id="app-icon" class="titlebar-icon" src="" alt="icon">
+      <div class="titlebar-title">ChatECNU Desktop<span id="app-version" class="app-version"></span></div>
+      <div class="titlebar-menu">
+        <div class="update-wrapper">
+          <div id="update-ring" class="update-progress-container">
+            <div class="loading-spinner"></div>
+          </div>
+          <!-- 升级图标按钮 (初始状态) -->
+          <button id="btn-check-icon" class="btn-update-icon" title="点击检查新版本">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="16 12 12 8 8 12"></polyline>
+              <line x1="12" y1="16" x2="12" y2="8"></line>
+            </svg>
+          </button>
+          <!-- 文本操作按钮 (有更新/下载/安装状态) -->
+          <button id="btn-update-action" class="btn-update-text">立即下载</button>
+          <!-- 新版本角标 -->
+          <div id="update-badge" class="badge-dot"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="titlebar-right">
+      <button id="btn-sprite" class="btn-icon" title="精灵模式（收起）">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3v3a2 2 0 0 1-2 2H3"></path>
+          <path d="M21 8h-3a2 2 0 0 1-2-2V3"></path>
+          <path d="M3 16h3a2 2 0 0 1 2 2v3"></path>
+          <path d="M16 21v-3a2 2 0 0 1 2-2h3"></path>
+        </svg>
+      </button>
+      <button id="btn-refresh" class="btn-icon" title="刷新页面">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+          <path d="M21 3v5h-5"></path>
+        </svg>
+      </button>
+      <!-- UAT 环境切换 -->
+      <div id="env-switch" class="env-switch" style="display:none;">
+        <span class="env-label">UAT</span>
+        <label class="env-toggle">
+          <input type="checkbox" id="env-toggle-input">
+          <span class="env-toggle-slider"></span>
+        </label>
+      </div>
+      <button id="btn-settings" class="btn-icon" title="设置">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 原生窗口控件会自动显示在右侧，无需手动添加 -->
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron');
+
+    const ringContainer = document.getElementById('update-ring');
+    const btnCheckIcon = document.getElementById('btn-check-icon');
+    const btnUpdateAction = document.getElementById('btn-update-action');
+    const updateBadge = document.getElementById('update-badge');
+    const btnRefresh = document.getElementById('btn-refresh');
+    const appVersion = document.getElementById('app-version');
+    
+    let isUpdateAvailable = false;
+    let isUpdateDownloaded = false;
+
+    // 刷新按钮
+    btnRefresh.onclick = () => {
+      ipcRenderer.send('reload-page');
+    };
+
+    // 精灵模式按钮
+    const btnSprite = document.getElementById('btn-sprite');
+    btnSprite.onclick = () => {
+      ipcRenderer.send('enter-sprite-mode');
+    };
+
+    // 设置按钮
+    const btnSettings = document.getElementById('btn-settings');
+    btnSettings.onclick = () => {
+      ipcRenderer.send('open-settings');
+    };
+
+    // 加载设置并应用
+    ipcRenderer.invoke('get-settings').then(settings => {
+      applySettings(settings);
+    });
+
+    // 监听设置变化
+    ipcRenderer.on('settings-changed', (event, settings) => {
+      applySettings(settings);
+    });
+
+    // 应用设置
+    function applySettings(settings) {
+      // 精灵模式按钮显示/隐藏
+      btnSprite.style.display = settings.spriteMode ? 'flex' : 'none';
+    }
+
+    // UI 状态控制
+    function setRingState(type, percent = 0) {
+      if (type === 'none') {
+        ringContainer.style.display = 'none';
+        ringContainer.innerHTML = '';
+        return;
+      }
+      
+      ringContainer.style.display = 'flex';
+      
+      if (type === 'spinner') {
+        ringContainer.innerHTML = '<div class="loading-spinner"></div>';
+      } else if (type === 'progress') {
+        const radius = 6;
+        const circumference = 2 * Math.PI * radius;
+        const offset = circumference - (percent / 100) * circumference;
+        
+        ringContainer.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 16 16" style="transform: rotate(-90deg);">
+            <circle cx="8" cy="8" r="${radius}" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none"/>
+            <circle cx="8" cy="8" r="${radius}" stroke="#fff" stroke-width="2" fill="none" 
+                    stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" 
+                    stroke-linecap="round" />
+          </svg>
+        `;
+      }
+    }
+
+    function showState(state) {
+      // 重置所有显示
+      btnCheckIcon.style.display = 'none';
+      btnUpdateAction.style.display = 'none';
+      updateBadge.style.display = 'none';
+      
+      switch (state) {
+        case 'idle': // 初始状态：显示图标
+          btnCheckIcon.style.display = 'flex';
+          setRingState('none');
+          break;
+        case 'checking': // 检查中：显示 Ring
+          setRingState('spinner');
+          break;
+        case 'available': // 有更新：显示下载按钮 + 角标
+          btnUpdateAction.style.display = 'block';
+          btnUpdateAction.textContent = '立即下载';
+          btnUpdateAction.disabled = false;
+          updateBadge.style.display = 'block';
+          setRingState('none');
+          break;
+        case 'downloading': // 下载中：显示 Ring + 禁用按钮
+          btnUpdateAction.style.display = 'block';
+          btnUpdateAction.textContent = '下载中...';
+          btnUpdateAction.disabled = true;
+          setRingState('progress', 0);
+          break;
+        case 'downloaded': // 下载完成：显示安装按钮 + 角标
+          btnUpdateAction.style.display = 'block';
+          btnUpdateAction.textContent = '立即安装';
+          btnUpdateAction.disabled = false;
+          updateBadge.style.display = 'block';
+          setRingState('none');
+          break;
+      }
+    }
+
+    // 初始化状态
+    showState('idle');
+
+    // 按钮事件：检查更新
+    btnCheckIcon.onclick = () => {
+      ipcRenderer.send('check-for-updates');
+      showState('checking');
+    };
+
+    // 按钮事件：下载/安装
+    btnUpdateAction.onclick = () => {
+      if (isUpdateDownloaded) {
+        ipcRenderer.send('install-update');
+      } else {
+        ipcRenderer.send('download-update');
+        showState('downloading');
+      }
+    };
+
+    // 接收版本号
+    ipcRenderer.on('set-version', (event, version) => {
+      if (appVersion) appVersion.textContent = 'v' + version;
+    });
+
+    // 接收图标数据
+    ipcRenderer.on('set-icon', (event, dataUrl) => {
+      document.getElementById('app-icon').src = dataUrl;
+    });
+
+    // 正在检查更新（自动检查时触发）
+    ipcRenderer.on('checking-for-update', () => {
+      showState('checking');
+    });
+
+    // 发现新版本
+    ipcRenderer.on('update-available', (event, info) => {
+      isUpdateAvailable = true;
+      showState('available');
+    });
+
+    // 无新版本
+    ipcRenderer.on('update-not-available', () => {
+      isUpdateAvailable = false;
+      showState('idle'); // 恢复初始状态
+    });
+
+    // 下载中
+    ipcRenderer.on('update-download-progress', (event, percent) => {
+      setRingState('progress', percent);
+    });
+
+    // 下载完成
+    ipcRenderer.on('update-downloaded', () => {
+      isUpdateDownloaded = true;
+      showState('downloaded');
+    });
+
+    // 错误处理
+    ipcRenderer.on('update-error', () => {
+      isUpdateAvailable = false;
+      isUpdateDownloaded = false;
+      showState('idle'); // 恢复初始状态
+    });
+    
+    // 兼容旧消息
+    ipcRenderer.on('update-message', (event, message) => {
+       console.log('Update message:', message);
+    });
+
+    // UAT 模式
+    const envSwitch = document.getElementById('env-switch');
+    const envToggleInput = document.getElementById('env-toggle-input');
+
+    ipcRenderer.on('set-uat-mode', (event, data) => {
+      const { enabled, active } = data;
+      const titlebar = document.getElementById('titlebar');
+      
+      if (enabled) {
+        envSwitch.style.display = 'flex';
+        envToggleInput.checked = active;
+        if (active) {
+          titlebar.classList.add('uat-mode');
+        } else {
+          titlebar.classList.remove('uat-mode');
+        }
+      } else {
+        envSwitch.style.display = 'none';
+        envToggleInput.checked = false;
+        titlebar.classList.remove('uat-mode');
+      }
+      
+    });
+
+    // 用户切换环境
+    envToggleInput.addEventListener('change', () => {
+      const isUat = envToggleInput.checked;
+      const titlebar = document.getElementById('titlebar');
+      if (isUat) {
+        titlebar.classList.add('uat-mode');
+      } else {
+        titlebar.classList.remove('uat-mode');
+      }
+      ipcRenderer.send('switch-env', isUat);
+    });
+  </script>
+</body>
+</html>
