@@ -54,7 +54,7 @@ async function svgToIco(inputSvg, outputIco) {
 
 // 命令行参数
 const inputSvg = process.argv[2] || path.join(__dirname, '../build/chatecnu.svg');
-const outputIco = process.argv[3] || path.join(__dirname, '../build/favicon.ico');
+const outputIco = process.argv[3] || path.join(__dirname, '../build/chatecnu.ico');
 
 svgToIco(inputSvg, outputIco).catch(err => {
   console.error('错误:', err.message);

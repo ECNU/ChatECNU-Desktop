@@ -21,6 +21,9 @@ const APP_TITLE = `ChatECNU Desktop v${version}`;
 // 判断是否为打包后的应用
 const isPackaged = app.isPackaged;
 
+// 命令行参数：--uat 强制启用 UAT 模式
+const forceUat = process.argv.includes('--uat');
+
 // ========== 窗口尺寸常量 ==========
 const MAIN_WINDOW_WIDTH = 1280;
 const MAIN_WINDOW_HEIGHT = 768;
@@ -67,9 +70,9 @@ let settingsWindow = null; // 设置窗口
 function createWindow() {
   // 图标路径
   const iconPath = getIconPath('chatecnu.ico');
-  const isUatModeEnabled = store.get('uatMode'); // UAT 功能是否启用
+  const isUatModeEnabled = store.get('uatMode') || forceUat; // UAT 功能是否启用
   const isUatActive = store.get('uatActive'); // UAT 环境是否激活
-  const shouldUseUat = isUatModeEnabled && isUatActive; // 启动时是否使用 UAT
+  const shouldUseUat = forceUat || (isUatModeEnabled && isUatActive); // 启动时是否使用 UAT
   
   // 创建主窗口（App Shell）
   mainWindow = new BrowserWindow({
@@ -212,6 +215,77 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+// ========== JSBridge ==========
+// 当前 web 版本（由前端上报）
+let currentWebVersion = null;
+
+// 比较版本号，返回 1 (a > b), -1 (a < b), 0 (a == b)
+function compareVersions(a, b) {
+  const partsA = a.replace(/^v/, '').split('.').map(Number);
+  const partsB = b.replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+    const numA = partsA[i] || 0;
+    const numB = partsB[i] || 0;
+    if (numA > numB) return 1;
+    if (numA < numB) return -1;
+  }
+  return 0;
+}
+
+// 检查 web 版本更新
+async function checkWebVersionUpdate(reportedVersion) {
+  try {
+    // 根据当前环境确定 API 地址（与 createWindow 逻辑保持一致）
+    const shouldUseUat = forceUat || (store.get('uatMode') && store.get('uatActive'));
+    const baseUrl = shouldUseUat ? URL_UAT : URL_PRODUCTION;
+    const url = `${baseUrl}/api/version/latest?_t=${Date.now()}`;
+    
+    const response = await fetch(url);
+    const result = await response.json();
+    
+    if (result.code === 0 && result.data && result.data.version) {
+      const serverVersion = result.data.version;
+      // 比较：服务器版本 > 当前加载版本
+      if (compareVersions(serverVersion, reportedVersion) > 0) {
+        console.log(`[web-update] new version available: ${reportedVersion} -> ${serverVersion}`);
+        // 通知主窗口显示提示
+        if (mainWindow) {
+          mainWindow.webContents.send('web-update-available', {
+            current: reportedVersion,
+            latest: serverVersion
+          });
+        }
+      } else {
+        console.log(`[web-update] up to date: ${reportedVersion}`);
+      }
+    }
+  } catch (err) {
+    console.error('[web-update] check failed:', err.message);
+  }
+}
+
+// 网页通过 _tx.status(key, value) 告知客户端状态
+ipcMain.on('tx:status', (event, key, value) => {
+  console.log(`[tx:status] ${key}:`, value);
+  
+  // 处理 version 上报
+  if (key === 'version' && value && value.frontend) {
+    const reportedVersion = value.frontend.replace(/^v/, '');
+    // 避免重复检查同一版本
+    if (currentWebVersion !== reportedVersion) {
+      currentWebVersion = reportedVersion;
+      checkWebVersionUpdate(reportedVersion);
+    }
+  }
+});
+
+// 向网页发送事件（供主进程其他模块调用）
+function emitToWeb(eventName, data) {
+  if (view && view.webContents) {
+    view.webContents.send('tx:event', eventName, data);
+  }
 }
 
 // IPC: 检查更新
